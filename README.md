@@ -151,13 +151,86 @@ Interactive results page with a radar chart, color-coded category bars, tabbed k
 
    Visit `http://localhost:8080`
 
-## How It Works
+## How It Works — Architecture & Logic
 
-1. **Upload** — User uploads a resume (PDF/DOCX) and pastes a job description
-2. **Extract** — Text is extracted from the document using PDFParser or PHPWord
-3. **Validate** — Content is validated to ensure it's a real resume and a real job description
-4. **Analyze** — The resume is scored across 7 categories using keyword extraction, skill matching, section detection, and formatting analysis
-5. **Report** — Results are saved to the database and displayed with interactive charts, matched/missing keywords, and prioritized suggestions
+### Analysis Pipeline
+
+When a user submits a resume and job description, the backend runs a **5-step pipeline**:
+
+```
+Upload → Extract → Validate → Analyze (7 categories) → Generate Report
+```
+
+#### Step 1: File Upload & Text Extraction
+- **`FileUploader`** validates the file type (PDF/DOCX), checks the MIME type, enforces the 10 MB size limit, and stores the file with a unique name.
+- **`TextExtractor`** uses **smalot/pdfparser** for PDFs and **phpoffice/phpword** for DOCX files to extract raw text content from the uploaded document.
+
+#### Step 2: Input Validation
+- **`ContentValidator`** ensures the uploaded file is actually a resume (not a random document) by checking:
+  - **Word count** — minimum 80 words
+  - **Section detection** — must contain at least 2 core resume sections (education, experience, skills, projects, summary, certifications, contact)
+- It also validates the job description is a real job listing using **category-based phrase detection**:
+  - Checks against 5 categories of job-listing phrases: responsibilities, requirements, skills/tech, education, and employment terms
+  - Must match phrases from at least **3 of 5 categories**
+  - Minimum 40 words and 8 extracted keywords
+  - This prevents users from submitting random text and getting meaningless scores
+
+#### Step 3: Keyword Extraction (TF-IDF Based)
+- **`KeywordExtractor`** processes the job description through a text pipeline:
+  1. Clean and normalize the text
+  2. Tokenize into individual words
+  3. Remove English stopwords + job-description-specific stopwords (e.g., "required", "preferred", "candidate")
+  4. Calculate word frequency
+  5. Extract **bigrams** (two-word phrases) that appear 2+ times, weighted at 2x
+  6. Returns the top 50 keywords ranked by frequency
+
+#### Step 4: 7-Category Scoring
+- **`ResumeAnalyzer`** runs 7 independent analyses on the resume text:
+
+| Analysis | Class/Method | Logic |
+|----------|-------------|-------|
+| **Keywords** | `matchKeywords()` | Checks each extracted JD keyword against resume text using word-boundary regex matching. Calculates match percentage. Score uses base + bonus system (bonus at 60%+ and 80%+ match rates). Max 30 pts. |
+| **Skills** | `matchSkills()` | Queries the `skills_master` database table (150+ skills with aliases in JSON). First identifies which skills the JD requires, then checks which of those exist in the resume. Supports aliases (e.g., "JS" matches "JavaScript"). Max 20 pts. |
+| **Sections** | `detectSections()` | Uses a dictionary of section headers (`data/section_headers.php`) with multiple variants per section (e.g., "Work Experience", "Professional Experience", "Employment History" all map to "experience"). Core sections (experience, education, skills, contact) worth 3 pts each; optional sections worth 1 pt each. Max 15 pts. |
+| **Projects** | `analyzeProjects()` | Detects project section presence, counts individual projects (via bullet points/numbered items), and checks for technology mentions ("built with", "tech stack", etc.). Max 10 pts. |
+| **Experience** | `analyzeExperience()` | Counts **action verbs** (30+ verbs like "led", "developed", "implemented"), **quantifiable achievements** (numbers, percentages, metrics), and **positions** (detected via date range patterns like "2020 - 2023" or "Jan 2021 -"). Max 10 pts. |
+| **Education** | `analyzeEducation()` | Checks for degree mentions (Bachelor, Master, B.Tech, MBA, etc.), institution names (university, college, institute), and graduation dates. Max 5 pts. |
+| **Formatting** | `analyzeFormatting()` | Evaluates word count (ideal: 300-1500), structure consistency (3+ sections), special character ratio (<2% is clean), contact info presence (email + phone), and line break quality. Max 10 pts. |
+
+- **`ScoringEngine`** takes all 7 analysis results and computes weighted scores totaling 100 points.
+
+#### Step 5: Suggestions & Report
+- **`SuggestionsEngine`** generates prioritized improvement tips based on the analysis:
+  - **High priority** — Missing critical keywords, low skill match, missing core sections
+  - **Medium priority** — Few action verbs, no quantifiable achievements, formatting issues
+  - **Low priority** — Optional section improvements, minor formatting tweaks
+- **`ReportGenerator`** saves everything to MySQL and returns the report ID for the results page.
+
+### Frontend Architecture
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| **Landing Page** | Tailwind CSS + CSS animations | Animated gradient blobs, scroll-reveal with IntersectionObserver, animated score counter |
+| **Analyzer Page** | Vanilla JS + Fetch API | Drag-and-drop file upload, form validation, progress indicator, async API calls |
+| **Results Page** | Chart.js + Vanilla JS | Radar chart (7 axes, multi-color), color-coded category bars, tabbed keyword/skill views, expandable suggestion cards |
+| **History Page** | Vanilla JS + Fetch API | Paginated table with score badges, inline PDF download links |
+| **PDF Reports** | DOMPDF | Server-side HTML-to-PDF generation with color-coded category bars matching the web UI |
+
+### Database Schema
+
+Three main tables:
+- **`users`** — User accounts with bcrypt password hashes and role-based access (user/admin)
+- **`skills_master`** — Admin-curated skill dictionary with JSON aliases and categories
+- **`resume_reports`** — Stores all analysis data: scores per category, matched/missing keywords & skills as JSON, extracted text, and suggestions
+
+### Authentication & Security
+
+- Session-based auth with `httponly` and `SameSite=Strict` cookies
+- Passwords hashed with `password_hash()` (bcrypt)
+- Auth guard middleware prevents access to protected pages without login
+- Input sanitization via `htmlspecialchars()` helper
+- File upload validation: extension, MIME type, and size checks
+- Direct access to config files is blocked
 
 ## Built With
 
