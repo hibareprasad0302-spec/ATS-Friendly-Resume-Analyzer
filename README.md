@@ -21,13 +21,16 @@ A full-featured web application that scores your resume against any job descript
 ## Screenshots
 
 ### Landing Page
-The landing page features animated gradient blobs, a hero section with an animated score gauge, and scroll-reveal animations.
+![Landing Page](screenshots/landing.png)
 
 ### Analyzer
-Upload your resume, paste a job description, optionally enter a job role, and get your score.
+![Analyzer](screenshots/analyser.png)
 
 ### Results
-Interactive results page with a radar chart, color-coded category bars, tabbed keyword/skill views, and expandable suggestions.
+![Results](screenshots/results.png)
+
+### History
+![History](screenshots/history.png)
 
 ## Tech Stack
 
