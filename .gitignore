@@ -1,0 +1,25 @@
+# Dependencies
+/vendor/
+
+# Uploads (user-uploaded resumes)
+/uploads/*
+!/uploads/.gitkeep
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Claude Code
+.claude/
+
+# Environment
+.env
+
+# Logs
+*.log
+
+# OS
+Thumbs.db

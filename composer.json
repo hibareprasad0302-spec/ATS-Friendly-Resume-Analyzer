@@ -1,0 +1,14 @@
+{
+    "name": "prasad/ats-resume-analyzer",
+    "description": "ATS Resume Scoring & Job Match Analyzer",
+    "type": "project",
+    "require": {
+        "php": ">=8.4",
+        "smalot/pdfparser": "^2.12",
+        "phpoffice/phpword": "^1.4",
+        "dompdf/dompdf": "^3.1"
+    },
+    "autoload": {
+        "classmap": ["classes/"]
+    }
+}

@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Deny access to sensitive directories
+RewriteRule ^(includes|classes|data|sql|vendor)/ - [F,L]
+
+# Security headers
+Header set X-Content-Type-Options "nosniff"
+Header set X-Frame-Options "DENY"
+Header set X-XSS-Protection "1; mode=block"
